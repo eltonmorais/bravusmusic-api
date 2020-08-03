@@ -125,8 +125,8 @@ export const onCourseDelete = functions.firestore.document('fl_content/{document
 
     _initializeFirestore()
 
-    let createdData = snapshot.data()
-    let docId = snapshot.id
+    const createdData = snapshot.data()
+    const docId = snapshot.id
 
     const pathSegments = createdData['parent_course']['_path']['segments']
     const courseId = pathSegments[1]
@@ -138,8 +138,8 @@ export const onCourseCreate = functions.firestore.document('fl_content/{document
 
     _initializeFirestore()
 
-    let createdData = snapshot.data()
-    let docId = snapshot.id
+    const createdData = snapshot.data()
+    const docId = snapshot.id
     
     const pathSegments = createdData['parent_course']['_path']['segments']
     const courseId = pathSegments[1]
