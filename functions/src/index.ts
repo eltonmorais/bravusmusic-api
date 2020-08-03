@@ -128,10 +128,22 @@ export const onCourseDelete = functions.firestore.document('fl_content/{document
     const createdData = snapshot.data()
     const docId = snapshot.id
 
-    const pathSegments = createdData['parent_course']['_path']['segments']
-    const courseId = pathSegments[1]
+    const schema = _getSchema(createdData)
 
-    return _deleteItem(docId, courseId)
+    if (schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
+        return null
+    }
+
+    if (schema !== "curso") {
+        const pathSegments = createdData['parent_course']['_path']['segments']
+        const courseId = pathSegments[1]
+
+        return _deleteItem(docId, courseId)
+    } else {
+        return _deleteCourse(docId)
+    }
+
+
 })
 
 export const onCourseCreate = functions.firestore.document('fl_content/{documentId}').onCreate(snapshot => {
@@ -140,11 +152,12 @@ export const onCourseCreate = functions.firestore.document('fl_content/{document
 
     const createdData = snapshot.data()
     const docId = snapshot.id
-    
-    const pathSegments = createdData['parent_course']['_path']['segments']
-    const courseId = pathSegments[1]
 
     const schema = _getSchema(createdData)
+
+    if (schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
+        return null
+    }
 
     if (schema === "curso") {
         if (snapshot.exists) {
@@ -153,6 +166,9 @@ export const onCourseCreate = functions.firestore.document('fl_content/{document
             return _deleteCourse(docId)
         }
     } else {
+        const pathSegments = createdData['parent_course']['_path']['segments']
+        const courseId = pathSegments[1]
+        
         if (snapshot.exists) {
             switch (schema) {
                 case "modulo":
@@ -188,6 +204,14 @@ export const onCourseChange = functions.firestore.document('fl_content/{document
         docId = snapshot.before.id
     }
     const schema = _getSchema(createdData)
+
+    if (schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
+        if (schema === "users") {
+            //do users action (sync with ActiveCampaign)
+        }
+        return null
+    }
+
 
     if (schema === "curso") {
         if (snapshot.after.exists) {
@@ -227,7 +251,7 @@ export const onCourseChange = functions.firestore.document('fl_content/{document
 
 function _deleteItem(docId: any, courseId: any) {
     const dataToSave = {
-        "contents" : admin.firestore.FieldValue.arrayRemove(docId)
+        "contents": admin.firestore.FieldValue.arrayRemove(docId)
     }
     dataToSave[docId] = {}
     return admin.firestore().collection("courses").doc("course_" + courseId).set(dataToSave, { merge: true })
@@ -251,7 +275,7 @@ function _setContent(data: any, docId: any, courseId: any, parentVideoId: any) {
         "urlDownload": data['urlDownload'],
         "contentType": data['contentType'],
         "id": docId,
-        "type":"AcademyElementType.Content",
+        "type": "AcademyElementType.Content",
         "isActive": data['isActive'],
     }
 
@@ -270,7 +294,7 @@ function _setVideo(data: any, docId: any, courseId: any, parentLessonId: any) {
         "urlFile": data['urlFile'],
         "description": data['description'],
         "id": docId,
-        "type":"AcademyElementType.Video",
+        "type": "AcademyElementType.Video",
         "isActive": data['isActive'],
     }
 
@@ -287,7 +311,7 @@ function _setLessonItem(data: any, docId: any, courseId: any, parentId: any) {
         "parentId": parentId,
         "description": data['description'],
         "id": docId,
-        "type":"AcademyElementType.Lesson",
+        "type": "AcademyElementType.Lesson",
         "isActive": data['isActive'],
     }
 
@@ -304,7 +328,7 @@ function _setModuleItem(data: any, docId: any, courseId: any, parentId: any) {
         "parentId": parentId,
         "description": data['description'],
         "id": docId,
-        "type":"AcademyElementType.Module",
+        "type": "AcademyElementType.Module",
         "isActive": data['isActive'],
     }
 
@@ -324,7 +348,7 @@ function _setCourse(data: any, docId: any) {
         "gradient": data['gradient'],
         "icon": data['icon'],
         "order": data['order'],
-        "type":"AcademyElementType.Course",
+        "type": "AcademyElementType.Course",
         "thumb": data['thumb'],
     }
 
