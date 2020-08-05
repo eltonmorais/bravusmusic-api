@@ -168,7 +168,7 @@ export const onCourseCreate = functions.firestore.document('fl_content/{document
     } else {
         const pathSegments = createdData['parent_course']['_path']['segments']
         const courseId = pathSegments[1]
-        
+
         if (snapshot.exists) {
             switch (schema) {
                 case "modulo":
@@ -207,7 +207,90 @@ export const onCourseChange = functions.firestore.document('fl_content/{document
 
     if (schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
         if (schema === "users") {
-            //do users action (sync with ActiveCampaign)
+
+            const request = require('request');
+            // const express = require('express')
+            // const app = express()
+            // const port = 3001
+
+            const requestOptions = (method) => {
+                return {
+                    method: method,
+                    headers: {
+                        "Api-Token": "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731"
+                    },
+                    url: `https://bravusmusic.api-us1.com/api/3/`,
+                    qs: { "field[fieldid]": "1", "field[val]": "cdd" }
+                };
+            }
+
+            const options = requestOptions('GET');
+            options.url = `${options.url}fieldvalues`;
+
+            console.log(options.url)
+
+            return new Promise(async function (resolve, reject) {
+                // Do async job
+                console.log("promise")
+                console.log(resolve)
+                const result = await request.get(options, function (err, resp, body) {
+                    console.log("resp")
+                    console.log(resp)
+                    console.log(body)
+                    console.log(err)
+                    if (err) {
+                        console.log(err)
+                        reject(err);
+                    } else {
+                        console.log(body)
+                        resolve(body);
+                    }
+                })
+
+                console.log("result")
+                console.log(result)
+                console.log("result.body")
+                console.log(result.body)
+            });
+
+
+            // const activeCampaign = require('activecampaign')
+
+            // const ac = new activeCampaign("https://bravusmusic.api-us1.com", "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731")
+
+            // console.log("216")
+
+            // ac.version(3)
+
+            // console.log("220")
+
+            // ac.credentials_test().then(function (result) {
+            //     // successful request
+            //     console.log("224")
+            //     console.log("result")
+            //     console.log(result)
+            //     if (result.success) {
+            //         // VALID ACCOUNT
+            //         console.log("valid Account")
+            //     } else {
+            //         // INVALID ACCOUNT
+            //         console.log("INvalid Account")
+            //     }
+            // }, function (result) {
+            //     // request error
+            // });
+
+            // console.log("238")
+
+            // const fieldValues = ac.api("fieldvalues", { "filters[fieldid]": "1", "filters[val]": "cdd" })
+
+            // return fieldValues.then(function (result) {
+            //     console.log("success")
+            //     console.log(result)
+            // }, function (result) {
+            //     console.log("error")
+            //     console.log(result)
+            // })
         }
         return null
     }
