@@ -154,7 +154,7 @@ export const onCourseCreate = functions.firestore.document('fl_content/{document
 
     const schema = _getSchema(createdData)
 
-    if (schema === "pushMessage" ||schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
+    if (schema === "pushMessage" || schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
         return null
     }
 
@@ -281,10 +281,106 @@ function _getActiveApiHeaders() {
     }
 }
 
-async function _updateActiveCampaignFCM(contactID: any, fcmToken: any) {
+export const onLogCreate = functions.firestore.document('academy_log/{documentId}').onCreate(async snapshot => {
+    const createdData = snapshot.data()
+
+    let eventSlug
+    let statusLabel
+    let userData
+    let uid
+
+    try {
+        statusLabel = createdData['labelStatus']
+        eventSlug = createdData['eventSlug']
+        uid = createdData['uid']
+    } catch (error) {
+        console.log("error populating data")
+        console.log(error)
+    }
+
+    try {
+        _initializeFirestore()
+        const _document = await admin.firestore().collection("fl_content").where("uid", "==", uid).get()
+        userData = _document.docs[0].data()
+    } catch (error) {
+        console.log("error fingind user")
+        console.log(error)
+    }
+
+    await _acEventCreate(eventSlug)
+
+    return _acEventTrack(eventSlug, _contactGetEmail(userData), statusLabel).then((res) => {
+        console.log(res)
+    }, (error) => {
+        console.log(error)
+    })
+})
+
+async function _acEventCreate(eventSlug: any) {
+    _initializeFirestore()
+
+    const _docs = await admin.firestore().collection("acEventsSync").where("name", "==", eventSlug).get()
+    if (_docs.docs.length < 1) {
+        await _acEventCreateRemote(eventSlug).then((res) => {
+            console.log(res)
+        })
+
+        _initializeFirestore()
+
+        admin.firestore().collection("acEventsSync").doc().set({
+            "name": eventSlug,
+        }).then((res) => console.log(res), (err) => console.log(err))
+    }
+}
+
+async function _acEventCreateRemote(eventSlug: any) {
     const request = require('axios');
 
-    console.log("_updateActiveCampaignFCM")
+    const options = {
+        headers: _getActiveApiHeaders(),
+        data: {
+            "eventTrackingEvent": {
+                "name": eventSlug
+            },
+
+        },
+        method: "POST",
+        json: true,
+        url: "https://bravusmusic.api-us1.com/api/3/eventTrackingEvents"
+    }
+
+    return request(options)
+}
+
+async function _acEventTrack(eventSlug: any, contactEmail: any, eventData?: any) {
+    const request = require('axios');
+
+    const _eventData = eventData ?? ""
+
+    const options = {
+        headers: _getActiveApiHeaders(),
+        data: {
+            "actid": "799714071",
+            "key": "1afdbe13107fd141dabb94c90c0e6b85b5b5c6d7",
+            "event": eventSlug,
+            "eventdata": _eventData,
+            "visit": {
+                "email": contactEmail
+            }
+
+        },
+        method: "POST",
+        json: true,
+        url: "https://trackcmp.net/event"
+    }
+
+    console.log(options)
+
+    return request(options)
+}
+
+async function _updateActiveCampaignFCM(contactID: any, fcmToken: any) {
+    const request = require('axios');
 
     const options = {
         headers: _getActiveApiHeaders(),
@@ -300,19 +396,11 @@ async function _updateActiveCampaignFCM(contactID: any, fcmToken: any) {
         url: "https://bravusmusic.api-us1.com/api/3/"
     }
 
-    console.log("encode")
-    console.log(fcmToken)
-    console.log(encodeURI(fcmToken))
-
     options.url = options.url + 'fieldValues'
 
-    console.log(options)
-
     return request(options).then((res) => {
-        console.log("res")
         console.log(res)
     }, (error) => {
-        console.log("error")
         console.log(error)
     })
 }
@@ -437,7 +525,7 @@ export const sendPushNotification = functions.https.onRequest(async (req, res) =
         const message = new gcm.Message({
             notification: {
                 title: _finalTitle,
-                // icon: "your_icon_name",
+                icon: "transparent",
                 body: _finalBody
             },
         });
@@ -448,7 +536,13 @@ export const sendPushNotification = functions.https.onRequest(async (req, res) =
                 res.status(400).send("error sending message")
                 return
             }
-            else console.log(response);
+            else {
+                const _failure = response['failure'] as number
+                if (_failure > 0) {
+                    _acEventTrack("APP-Student", data['contact']['email'], "Uninstall").then((result) => console.log(result), (error) => console.log(error))
+                }
+            }
+
         });
     } catch (error) {
         console.log(error)
