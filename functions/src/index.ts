@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin'
+import gcm = require("node-gcm")
 
 const _verifyToken = "98765432e1";
 
@@ -130,7 +131,7 @@ export const onCourseDelete = functions.firestore.document('fl_content/{document
 
     const schema = _getSchema(createdData)
 
-    if (schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
+    if (schema === "pushMessage" || schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
         return null
     }
 
@@ -142,8 +143,6 @@ export const onCourseDelete = functions.firestore.document('fl_content/{document
     } else {
         return _deleteCourse(docId)
     }
-
-
 })
 
 export const onCourseCreate = functions.firestore.document('fl_content/{documentId}').onCreate(snapshot => {
@@ -155,7 +154,7 @@ export const onCourseCreate = functions.firestore.document('fl_content/{document
 
     const schema = _getSchema(createdData)
 
-    if (schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
+    if (schema === "pushMessage" ||schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
         return null
     }
 
@@ -205,92 +204,9 @@ export const onCourseChange = functions.firestore.document('fl_content/{document
     }
     const schema = _getSchema(createdData)
 
-    if (schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
+    if (schema === "pushMessage" || schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
         if (schema === "users") {
-
-            const request = require('request');
-            // const express = require('express')
-            // const app = express()
-            // const port = 3001
-
-            const requestOptions = (method) => {
-                return {
-                    method: method,
-                    headers: {
-                        "Api-Token": "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731"
-                    },
-                    url: `https://bravusmusic.api-us1.com/api/3/`,
-                    qs: { "field[fieldid]": "1", "field[val]": "cdd" }
-                };
-            }
-
-            const options = requestOptions('GET');
-            options.url = `${options.url}fieldvalues`;
-
-            console.log(options.url)
-
-            return new Promise(async function (resolve, reject) {
-                // Do async job
-                console.log("promise")
-                console.log(resolve)
-                const result = await request.get(options, function (err, resp, body) {
-                    console.log("resp")
-                    console.log(resp)
-                    console.log(body)
-                    console.log(err)
-                    if (err) {
-                        console.log(err)
-                        reject(err);
-                    } else {
-                        console.log(body)
-                        resolve(body);
-                    }
-                })
-
-                console.log("result")
-                console.log(result)
-                console.log("result.body")
-                console.log(result.body)
-            });
-
-
-            // const activeCampaign = require('activecampaign')
-
-            // const ac = new activeCampaign("https://bravusmusic.api-us1.com", "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731")
-
-            // console.log("216")
-
-            // ac.version(3)
-
-            // console.log("220")
-
-            // ac.credentials_test().then(function (result) {
-            //     // successful request
-            //     console.log("224")
-            //     console.log("result")
-            //     console.log(result)
-            //     if (result.success) {
-            //         // VALID ACCOUNT
-            //         console.log("valid Account")
-            //     } else {
-            //         // INVALID ACCOUNT
-            //         console.log("INvalid Account")
-            //     }
-            // }, function (result) {
-            //     // request error
-            // });
-
-            // console.log("238")
-
-            // const fieldValues = ac.api("fieldvalues", { "filters[fieldid]": "1", "filters[val]": "cdd" })
-
-            // return fieldValues.then(function (result) {
-            //     console.log("success")
-            //     console.log(result)
-            // }, function (result) {
-            //     console.log("error")
-            //     console.log(result)
-            // })
+            return _proccessUserUpdate(snapshot.before.data(), snapshot.after.data())
         }
         return null
     }
@@ -331,6 +247,243 @@ export const onCourseChange = functions.firestore.document('fl_content/{document
 
     return null
 })
+
+function _contactGetEmail(data: any) {
+    let emailToActive = data['email']
+    if (emailToActive === undefined || emailToActive === "") {
+        emailToActive = data['providerEmail']
+    }
+
+    if (emailToActive === undefined || emailToActive === "") {
+        emailToActive = data['uid'] + '@bravusmusic.com'
+    }
+
+    return emailToActive
+}
+
+function _contactGetName(data: any) {
+    let displayName = data['displayName']
+    if (displayName === undefined || displayName === "") {
+        displayName = data['providerDisplayName']
+    }
+
+    if (displayName === undefined || displayName === "") {
+        displayName = ""
+    }
+
+    return displayName
+}
+
+function _getActiveApiHeaders() {
+    return {
+        "Api-Token": "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731",
+        "Content-Type": "application/json"
+    }
+}
+
+async function _updateActiveCampaignFCM(contactID: any, fcmToken: any) {
+    const request = require('axios');
+
+    console.log("_updateActiveCampaignFCM")
+
+    const options = {
+        headers: _getActiveApiHeaders(),
+        data: {
+            "fieldValue": {
+                "contact": contactID,
+                "field": "2",
+                "value": encodeURI(fcmToken)
+            }
+        },
+        method: "POST",
+        json: true,
+        url: "https://bravusmusic.api-us1.com/api/3/"
+    }
+
+    console.log("encode")
+    console.log(fcmToken)
+    console.log(encodeURI(fcmToken))
+
+    options.url = options.url + 'fieldValues'
+
+    console.log(options)
+
+    return request(options).then((res) => {
+        console.log("res")
+        console.log(res)
+    }, (error) => {
+        console.log("error")
+        console.log(error)
+    })
+}
+
+async function _activeContactCreate(email: any, firstName: any, lastName: any, phone: any, userDocId: any, fcmToken?: any, contactID?: any) {
+    const request = require('axios');
+
+    const options = {
+        headers: _getActiveApiHeaders(),
+        data: {
+            "contact": {
+                "email": email,
+                "firstName": firstName,
+                "lastName": lastName,
+                "phone": phone
+            }
+        },
+        method: "POST",
+        json: true,
+        url: "https://bravusmusic.api-us1.com/api/3/"
+    }
+
+    if (contactID !== undefined) {
+        options.method = 'PUT'
+        options.url = options.url + 'contacts/' + contactID
+    } else {
+        options.url = options.url + 'contact/sync'
+    }
+
+    return request(options).then((res) => {
+        const _activeCampaignID = res.data['contact']['id']
+
+        if (fcmToken !== undefined) {
+            try {
+                _updateActiveCampaignFCM(_activeCampaignID, fcmToken).then((resFcm) => {
+                    console.log(resFcm)
+                }, (err) => {
+                    console.log(err)
+                })
+            } catch (error) {
+                console.log(error)
+            }
+        }
+
+        return admin.firestore().collection("fl_content").doc(userDocId).set({ 'activeCampaignID': _activeCampaignID }, { merge: true })
+
+    }, (error) => {
+        console.log(error)
+    })
+}
+
+export const sendPushNotification = functions.https.onRequest(async (req, res) => {
+
+    const data = req.body
+    const messageId = req.query.messageId as string
+    let _fcmToken
+    let _body
+    let _title
+    let _finalBody
+    let _finalTitle
+    let _document
+
+    try {
+        _fcmToken = decodeURI(data['contact']['fields']['firebasemessagingtoken'])
+    } catch (error) {
+        res.status(403).send("dont have token")
+        return
+    }
+
+    try {
+        //get message from db
+        _initializeFirestore()
+        _document = await admin.firestore().collection('fl_content').doc(messageId).get()
+    } catch (error) {
+        console.log(error)
+        console.log(messageId)
+        res.status(404).send("dont found message")
+        return
+    }
+
+    try {
+        const _data = _document.data()
+        _body = _data['body']
+        _title = _data['title']
+    } catch (error) {
+        console.log(error)
+        console.log(_body)
+        res.status(404).send("undefined data")
+        return
+
+    }
+
+    try {
+        //personalize message
+        _finalBody = _body
+        _finalTitle = _title
+        let _stringBody = _finalBody as string
+        let _stringTitle = _finalTitle as string
+        Object.keys(data['contact']['fields']).forEach(element => {
+            _stringBody = _stringBody.replace("%" + element + "%", data['contact']['fields'][element] as string)
+            _stringTitle = _stringTitle.replace("%" + element + "%", data['contact']['fields'][element] as string)
+        });
+        _stringBody = _stringBody.replace("%email%", data['contact']['email'] as string)
+        _stringTitle = _stringTitle.replace("%email%", data['contact']['email'] as string)
+        _stringBody = _stringBody.replace("%first_name%", data['contact']['first_name'] as string)
+        _stringTitle = _stringTitle.replace("%first_name%", data['contact']['first_name'] as string)
+        _stringBody = _stringBody.replace("%last_name%", data['contact']['last_name'] as string)
+        _stringTitle = _stringTitle.replace("%last_name%", data['contact']['last_name'] as string)
+        _stringBody = _stringBody.replace("%phone%", data['contact']['phone'] as string)
+        _stringTitle = _stringTitle.replace("%phone%", data['contact']['phone'] as string)
+
+        _finalBody = _stringBody
+        _finalTitle = _stringTitle
+    } catch (error) {
+        res.status(400).send("error building message")
+        return
+    }
+
+    try {
+        const sender = new gcm.Sender("AAAAUb2zJmI:APA91bGPjfUSvZHDQIFp-u7_Kdyqxy97RFECy6U81FEwGqxlxjfa5xZqt1aIE1Vl0L1m-wKT6NzZTkNEofmZu6D0BzLss4sy6lbHqsvbvZ-bTKMHm6dJ9jXGlk-PO5pRt7o82rfMTLsX")
+
+        const message = new gcm.Message({
+            notification: {
+                title: _finalTitle,
+                // icon: "your_icon_name",
+                body: _finalBody
+            },
+        });
+
+        sender.sendNoRetry(message, [_fcmToken], (err, response) => {
+            if (err) {
+                console.error(err)
+                res.status(400).send("error sending message")
+                return
+            }
+            else console.log(response);
+        });
+    } catch (error) {
+        console.log(error)
+        res.status(400).send("error building message")
+        return
+    }
+
+    res.status(200).send("OK")
+})
+
+async function _proccessUserUpdate(dataBefore: any, dataAfter: any) {
+
+    try {
+
+        const emailToActive = _contactGetEmail(dataAfter)
+        const displayNameToActive = _contactGetName(dataAfter)
+        const phoneActive = dataAfter['phone']
+        const _nameSplited = displayNameToActive.split(" ", 2)
+
+        const _firstName = _nameSplited[0] ?? ""
+        const _lastName = _nameSplited[1] ?? ""
+
+        let _fcmToken
+
+        if (dataBefore['fcmToken'] !== dataAfter['fcmToken']) {
+            _fcmToken = dataAfter['fcmToken']
+        }
+
+        return _activeContactCreate(emailToActive, _firstName, _lastName, phoneActive, dataAfter['id'], _fcmToken, dataAfter['activeCampaignID'])
+    } catch (error) {
+        console.log(error)
+    }
+
+    return null
+}
 
 function _deleteItem(docId: any, courseId: any) {
     const dataToSave = {
