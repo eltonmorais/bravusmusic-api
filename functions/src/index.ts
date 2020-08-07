@@ -354,23 +354,26 @@ async function _acEventCreateRemote(eventSlug: any) {
 
 async function _acEventTrack(eventSlug: any, contactEmail: any, eventData?: any) {
     const request = require('axios');
+    const qs = require('qs')
 
     const _eventData = eventData ?? ""
 
     const options = {
-        headers: _getActiveApiHeaders(),
-        data: {
-            "actid": "799714071",
-            "key": "1afdbe13107fd141dabb94c90c0e6b85b5b5c6d7",
-            "event": eventSlug,
-            "eventdata": _eventData,
-            "visit": {
-                "email": contactEmail
+        headers: {
+            "Api-Token": "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731",
+            "content-type": "application/x-www-form-urlencoded"
+        },
+        data: qs.stringify({
+            actid: "799714071",
+            key: "1afdbe13107fd141dabb94c90c0e6b85b5b5c6d7",
+            event: eventSlug,
+            eventdata: _eventData,
+            visit: {
+                email: contactEmail
             }
 
-        },
+        }),
         method: "POST",
-        json: true,
         url: "https://trackcmp.net/event"
     }
 
