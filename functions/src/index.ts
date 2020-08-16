@@ -377,8 +377,6 @@ async function _acEventTrack(eventSlug: any, contactEmail: any, eventData?: any)
         url: "https://trackcmp.net/event"
     }
 
-    console.log(options)
-
     return request(options)
 }
 
@@ -526,11 +524,18 @@ export const sendPushNotification = functions.https.onRequest(async (req, res) =
         const sender = new gcm.Sender("AAAAUb2zJmI:APA91bGPjfUSvZHDQIFp-u7_Kdyqxy97RFECy6U81FEwGqxlxjfa5xZqt1aIE1Vl0L1m-wKT6NzZTkNEofmZu6D0BzLss4sy6lbHqsvbvZ-bTKMHm6dJ9jXGlk-PO5pRt7o82rfMTLsX")
 
         const message = new gcm.Message({
+            priority: "high",
             notification: {
+                click_action: "FLUTTER_NOTIFICATION_CLICK",
                 title: _finalTitle,
-                icon: "transparent",
                 body: _finalBody
+                // icon: "transparent",
             },
+            data: {
+                body: _finalBody,
+                title: _finalTitle,
+            }
+            ,
         });
 
         sender.sendNoRetry(message, [_fcmToken], (err, response) => {
@@ -540,6 +545,8 @@ export const sendPushNotification = functions.https.onRequest(async (req, res) =
                 return
             }
             else {
+                console.log("SEND PUSH RESPONSE")
+                console.log(response)
                 const _failure = response['failure'] as number
                 if (_failure > 0) {
                     _acEventTrack("APP-Student", data['contact']['email'], "Uninstall").then((result) => console.log(result), (error) => console.log(error))
