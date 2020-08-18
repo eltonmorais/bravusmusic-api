@@ -202,7 +202,14 @@ export const onCourseChange = functions.firestore.document('fl_content/{document
         createdData = snapshot.before
         docId = snapshot.before.id
     }
-    const schema = _getSchema(createdData)
+
+    let schema
+
+    try {
+        schema = _getSchema(createdData)
+    } catch (error) {
+        return null
+    }
 
     if (schema === "pushMessage" || schema === "cifraPro" || schema === "mainSettings" || schema === "userRoles" || schema === "users") {
         if (schema === "users") {
@@ -452,6 +459,125 @@ async function _activeContactCreate(email: any, firstName: any, lastName: any, p
         console.log(error)
     })
 }
+
+export const initFormSubmit = functions.https.onRequest(async (req, res) => {
+
+    const Busboy = require('busboy');
+
+    if (req.method !== 'POST') {
+        res.status(405)
+    }
+    const busboy = new Busboy({ headers: req.headers });
+
+    const fields = {};
+
+    busboy.on('field', (fieldname, val) => {
+        fields[fieldname] = val;
+    });
+
+    let _uid
+    let _displayName
+    let _userType
+    let _userLevel
+    let _wantInstrument
+    let _otherInstrument
+    let _mobile
+    let _howKnewBravus
+    let _userData
+
+    busboy.on('finish', async () => {
+        _uid = fields['wpforms[fields][23]']
+        _displayName = fields['wpforms[fields][1]']
+        _userType = fields['wpforms[fields][3]']
+        _userLevel = fields['wpforms[fields][13]']
+        _wantInstrument = fields['wpforms[fields][4]']
+        _otherInstrument = fields['wpforms[fields][9]']
+        _mobile = fields['wpforms[fields][6]']
+        _howKnewBravus = fields['wpforms[fields][12]']
+
+        const _dataToSave = {
+            displayName: _displayName ?? "",
+            userAccessType: _userType ?? "",
+            userLevel: _userLevel ?? "",
+            wantInstrument: _wantInstrument ?? "",
+            otherInstrument: _otherInstrument ?? "",
+            phone: _mobile ?? "",
+            howKnewBravus: _howKnewBravus ?? ""
+        }
+
+        try {
+            _initializeFirestore()
+            const _queryDocument = await admin.firestore().collection("fl_content").where("uid", "==", _uid).get()
+            _userData = _queryDocument.docs[0].data()
+            await admin.firestore().collection('fl_content').doc(_queryDocument.docs[0].id).update(_dataToSave)
+        } catch (error) {
+            console.log(error)
+            console.log(_uid)
+            res.status(404).send("dont found user")
+            return
+        }
+
+        try {
+            _acEventTrack("APP-Strudent-Initial-Form-Complete", _contactGetEmail(_userData)).then((result) => console.log(result), (error) => console.log(error))
+            res.status(200).send({"user-email":_contactGetEmail(_userData)})
+        } catch (error) {
+            console.log(error)
+            res.status(400).send({ "message": "error" })
+        }
+
+        // try {
+        //     const request = require('axios');
+        //     // const qs = require('querystring')
+        //     const _splitName = _displayName.split(" ") as string
+
+        //     const options = {
+        //         headers: {
+        //             "content-type": "application/x_www_form_urlencoded"
+        //         },
+        //         // qs: { "Api-Token": "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731" },
+        //         params: {
+        //             api_action: "contact_sync",
+        //             api_key: "ea09de296461ae5edf7f54e95a58a895c8ee46e8dca86b9061b990ebce5e0260b0d51731",
+        //             api_output: "serialize"
+        //         },
+        //         data:
+        //             JSON.stringify({
+        //                 "email": _contactGetEmail(_userData),
+        //                 "first_name": _splitName[0],
+        //                 // "last_name": _splitName[1],
+        //                 "last_name": "Teste 2",
+        //                 "phone": _mobile,
+        //                 "field[%USERACCESSTYPE%]": _userType ?? "",
+        //                 "field[%USERLEVEL%]": _userLevel ?? "",
+        //                 "field[%WANTINSTRUMENT%]": _wantInstrument ?? "",
+        //                 "field[%OTHERINSTRUMENT%]": _otherInstrument ?? "",
+        //                 "field[%HOWKNEWBRAVUS%]": _howKnewBravus ?? ""
+        //             }),
+        //         method: "POST",
+        //         json: true,
+        //         url: "http://bravusmusic.api-us1.com/admin/api.php"
+        //     }
+
+        //     return request(options).then((res2: any) => {
+        //         console.log(res2)
+        //         res.status(200).send("response: " + res2)
+        //     }, (error) => {
+        //         console.log(error)
+        //         res.status(400).send("error")
+        //     })
+        // } catch (error) {
+        //     console.log(error)
+        //     res.status(404).send("undefined data")
+        //     return
+
+        // }
+
+
+        // res.status(200).send("OK");
+    });
+
+    busboy.end(req.rawBody);
+})
 
 export const sendPushNotification = functions.https.onRequest(async (req, res) => {
 
