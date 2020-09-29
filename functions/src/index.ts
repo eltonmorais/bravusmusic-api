@@ -293,8 +293,9 @@ export const onLogCreate = functions.firestore.document('academy_log/{documentId
 
     let eventSlug
     let statusLabel
-    let userData
+    // let userData
     let uid
+    let userEmail
 
     try {
         statusLabel = createdData['labelStatus']
@@ -305,18 +306,23 @@ export const onLogCreate = functions.firestore.document('academy_log/{documentId
         console.log(error)
     }
 
-    try {
-        _initializeFirestore()
-        const _document = await admin.firestore().collection("fl_content").where("uid", "==", uid).get()
-        userData = _document.docs[0].data()
-    } catch (error) {
-        console.log("error fingind user")
-        console.log(error)
+    if (createdData.hasOwnProperty("userEmail")) {
+        console.log(createdData['userEmail'])
+        userEmail = createdData['userEmail']
+    } else {
+        try {
+            _initializeFirestore()
+            const _document = await admin.firestore().collection("fl_content").where("uid", "==", uid).get()
+            userEmail = _contactGetEmail(_document.docs[0].data())
+        } catch (error) {
+            console.log("error fingind user")
+            console.log(error)
+        }
     }
 
     await _acEventCreate(eventSlug)
 
-    return _acEventTrack(eventSlug, _contactGetEmail(userData), statusLabel).then((res) => {
+    return _acEventTrack(eventSlug, userEmail, statusLabel).then((res) => {
         console.log(res)
     }, (error) => {
         console.log(error)
@@ -519,7 +525,7 @@ export const initFormSubmit = functions.https.onRequest(async (req, res) => {
 
         try {
             _acEventTrack("APP-Strudent-Initial-Form-Complete", _contactGetEmail(_userData)).then((result) => console.log(result), (error) => console.log(error))
-            res.status(200).send({"user-email":_contactGetEmail(_userData)})
+            res.status(200).send({ "user-email": _contactGetEmail(_userData) })
         } catch (error) {
             console.log(error)
             res.status(400).send({ "message": "error" })
@@ -671,8 +677,6 @@ export const sendPushNotification = functions.https.onRequest(async (req, res) =
                 return
             }
             else {
-                console.log("SEND PUSH RESPONSE")
-                console.log(response)
                 const _failure = response['failure'] as number
                 if (_failure > 0) {
                     _acEventTrack("APP-Student", data['contact']['email'], "Uninstall").then((result) => console.log(result), (error) => console.log(error))
