@@ -320,6 +320,17 @@ export const onLogCreate = functions.firestore.document('academy_log/{documentId
         }
     }
 
+    if (createdData.hasOwnProperty("eventType")) {
+        console.log(createdData['eventType'])
+        const _eventType = createdData['eventType']
+        await _acEventCreate(_eventType)
+        _acEventTrack(_eventType, userEmail, statusLabel).then((res) => {
+            console.log(res)
+        }, (error) => {
+            console.log(error)
+        })
+    }
+
     await _acEventCreate(eventSlug)
 
     return _acEventTrack(eventSlug, userEmail, statusLabel).then((res) => {
@@ -632,21 +643,32 @@ export const sendPushNotification = functions.https.onRequest(async (req, res) =
         _finalTitle = _title
         let _stringBody = _finalBody as string
         let _stringTitle = _finalTitle as string
+        _stringBody = _stringBody.replace("%email%", data['contact']['email'] as string)
+        _stringBody = _stringBody.replace("%EMAIL%", data['contact']['email'] as string)
+        _stringTitle = _stringTitle.replace("%email%", data['contact']['email'] as string)
+        _stringTitle = _stringTitle.replace("%EMAIL%", data['contact']['email'] as string)
+        _stringBody = _stringBody.replace("%first_name%", data['contact']['first_name'] as string)
+        _stringTitle = _stringTitle.replace("%first_name%", data['contact']['first_name'] as string)
+        _stringBody = _stringBody.replace("%FIRSTNAME%", data['contact']['first_name'] as string)
+        _stringTitle = _stringTitle.replace("%FIRSTNAME%", data['contact']['first_name'] as string)
+        _stringBody = _stringBody.replace("%last_name%", data['contact']['last_name'] as string)
+        _stringTitle = _stringTitle.replace("%last_name%", data['contact']['last_name'] as string)
+        _stringBody = _stringBody.replace("%LASTNAME%", data['contact']['last_name'] as string)
+        _stringTitle = _stringTitle.replace("%LASTNAME%", data['contact']['last_name'] as string)
+        _stringBody = _stringBody.replace("%phone%", data['contact']['phone'] as string)
+        _stringTitle = _stringTitle.replace("%phone%", data['contact']['phone'] as string)
+        _stringBody = _stringBody.replace("%PHONE%", data['contact']['phone'] as string)
+        _stringTitle = _stringTitle.replace("%PHONE%", data['contact']['phone'] as string)
         Object.keys(data['contact']['fields']).forEach(element => {
+            _stringBody = _stringBody.replace("%" + element.toUpperCase() + "%", data['contact']['fields'][element] as string)
+            _stringTitle = _stringTitle.replace("%" + element.toUpperCase() + "%", data['contact']['fields'][element] as string)
             _stringBody = _stringBody.replace("%" + element + "%", data['contact']['fields'][element] as string)
             _stringTitle = _stringTitle.replace("%" + element + "%", data['contact']['fields'][element] as string)
         });
-        _stringBody = _stringBody.replace("%email%", data['contact']['email'] as string)
-        _stringTitle = _stringTitle.replace("%email%", data['contact']['email'] as string)
-        _stringBody = _stringBody.replace("%first_name%", data['contact']['first_name'] as string)
-        _stringTitle = _stringTitle.replace("%first_name%", data['contact']['first_name'] as string)
-        _stringBody = _stringBody.replace("%last_name%", data['contact']['last_name'] as string)
-        _stringTitle = _stringTitle.replace("%last_name%", data['contact']['last_name'] as string)
-        _stringBody = _stringBody.replace("%phone%", data['contact']['phone'] as string)
-        _stringTitle = _stringTitle.replace("%phone%", data['contact']['phone'] as string)
 
-        _finalBody = _stringBody
-        _finalTitle = _stringTitle
+        _finalBody = _stringBody.replace(/%[A-Za-z0-9-._]+%/gm," ")
+        _finalTitle = _stringTitle.replace(/%[A-Za-z0-9-._]+%/gm, " ")
+        
     } catch (error) {
         res.status(400).send("error building message")
         return
